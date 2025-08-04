@@ -204,3 +204,9 @@ footer {
 
 .hidden { display: none; }
 .visible { display: block; }
+/* Add this to your existing style.css file */
+.nav-links a.active {
+    color: #007bff;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 5px;
+}
