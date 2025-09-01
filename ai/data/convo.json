@@ -1,2 +1,17 @@
 // Placeholder - AI logic coming soon
+[
+  {
+    "messages": [
+      { "role": "user", "content": "I'm overwhelmed with exams." },
+      { "role": "assistant", "content": "It sounds really heavy. Let’s take it one step at a time. Try a 3-minute breathing break, then pick one tiny task for the next 10 minutes." }
+    ]
+  },
+  {
+    "messages": [
+      { "role": "user", "content": "I can't sleep due to stress." },
+      { "role": "assistant", "content": "Sorry you’re dealing with that. A short wind-down can help: screens off, dim lights, and four rounds of slow 4-4-4-4 breathing before bed." }
+    ]
+  }
+]
+
 
