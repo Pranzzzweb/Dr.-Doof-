@@ -77,6 +77,10 @@ data/processed/*
 .env.test
 .env.production
 
+backend/.env
+ai_memory.json
+
+
 # Temporary files
 *.tmp
 *.temp
