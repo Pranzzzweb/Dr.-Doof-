@@ -5,6 +5,10 @@ const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
+require('dotenv').config();                         // load backend/.env
+const { chatWithDoof } = require('../ai/inference/model'); // path from backend/server.js -> ai/inference/model.js
+
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -221,6 +225,7 @@ app.post('/api/chat/message', (req, res) => {
         timestamp: new Date()
     });
     
+    
     res.json({
         success: true,
         response: response,
@@ -232,6 +237,68 @@ app.post('/api/chat/message', (req, res) => {
             sessionDuration: new Date() - session.startTime
         }
     });
+});
+// AI-powered chat route (calls Dr. Doof LLM)
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { sessionId, userId = 'anon', messages } = req.body;
+
+    // Normalize messages to an array of {role, content}
+    let msgs = messages;
+    if (!Array.isArray(msgs)) {
+      if (typeof msgs === 'string' && msgs.trim().length) {
+        msgs = [{ role: 'user', content: msgs }];
+      } else if (req.body.message && typeof req.body.message === 'string') {
+        msgs = [{ role: 'user', content: req.body.message }];
+      } else {
+        msgs = [];
+      }
+    }
+
+    // Call your AI module
+    const aiResult = await chatWithDoof({ userId, messages: msgs });
+
+    // If a sessionId was provided, store the messages in the same session logs & update analytics
+    if (sessionId && sessions.has(sessionId)) {
+      const chatLog = chatLogs.get(sessionId) || [];
+
+      // Save user messages
+      msgs.forEach(m => {
+        if (m.role === 'user') {
+          const detected = detectMood(m.content || '');
+          chatLog.push({ sender: 'user', message: m.content, mood: detected, timestamp: new Date() });
+        }
+      });
+
+      // Save AI response
+      chatLog.push({
+        sender: 'doof',
+        message: aiResult.message,
+        mood: aiResult.triage?.level === 'crisis' ? 'stressed' : detectMood(aiResult.message || ''),
+        timestamp: new Date()
+      });
+
+      chatLogs.set(sessionId, chatLog);
+
+      // Update session meta
+      const session = sessions.get(sessionId);
+      session.lastActivity = new Date();
+      session.messageCount = (session.messageCount || 0) + 1;
+      const curMood = detectMood(aiResult.message || '');
+      session.currentMood = curMood;
+      session.moodHistory.push({ mood: curMood, timestamp: new Date() });
+
+      // Update analytics
+      moodAnalytics.moodDistribution[curMood] = (moodAnalytics.moodDistribution[curMood] || 0) + 1;
+      updateKeywordFrequency(aiResult.message || '');
+      updateDailyStats(curMood);
+    }
+
+    return res.json({ success: true, ...aiResult });
+  } catch (err) {
+    console.error('AI chat error:', err);
+    return res.status(500).json({ success: false, error: 'AI error', details: err.message });
+  }
 });
 
 // Get session history
