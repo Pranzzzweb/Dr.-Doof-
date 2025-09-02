@@ -405,4 +405,9 @@ app.listen(PORT, () => {
     console.log(`🧪 Dr. Doof's Mood Mate Backend is running on port ${PORT}`);
     console.log(`📊 Analytics available at http://localhost:${PORT}/api/analytics/mood`);
     console.log(`🏥 Health check at http://localhost:${PORT}/api/health`);
+    const app = express();
+
+// Add this:
+app.set('trust proxy', 1); // trust first proxy
+
 });
