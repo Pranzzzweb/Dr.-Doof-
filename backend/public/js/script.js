@@ -75,16 +75,16 @@ class MoodMateClient {
         
         try {
             // Send to backend
-            const response = await fetch(`${this.apiBase}/chat/message`, {
+            const response = await fetch(`${this.apiBase}/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    sessionId: this.sessionId,
-                    message: message,
-                    timestamp: new Date().toISOString()
-                })
+    sessionId: this.sessionId,
+    userId: this.sessionId,
+    messages: [{ role: "user", content: message }]
+})
             });
             
             if (!response.ok) {
@@ -96,10 +96,10 @@ class MoodMateClient {
             // Simulate typing delay
             setTimeout(() => {
                 this.setTyping(false);
-                this.addMessageToUI('doof', data.response, data.detectedMood);
-                this.currentMood = data.detectedMood;
-                this.updateMoodStatus(data.detectedMood);
-                this.updateSuggestions(data.detectedMood, data.suggestions);
+               this.addMessageToUI('doof', data.message, data.detectedMood || 'neutral');
+this.currentMood = data.detectedMood || 'neutral';
+this.updateMoodStatus(data.detectedMood || 'neutral');
+this.updateSuggestions(data.detectedMood || 'neutral', data.suggestions);
                 
                 // Log session stats
                 console.log('Session stats:', data.sessionStats);
