@@ -10,6 +10,8 @@ const { chatWithDoof } = require('../ai/inference/model'); // path from backend/
 
 
 const app = express();
+app.set('trust proxy', 1); // trust the first proxy
+
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -401,13 +403,13 @@ setInterval(() => {
     }
 }, 60 * 60 * 1000);
 
-app.listen(PORT, () => {
-    console.log(`🧪 Dr. Doof's Mood Mate Backend is running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🧪 Dr. Doof's Mood Mate Backend is running on port ${PORT}`);
+
     console.log(`📊 Analytics available at http://localhost:${PORT}/api/analytics/mood`);
     console.log(`🏥 Health check at http://localhost:${PORT}/api/health`);
     const app = express();
 
-// Add this:
-app.set('trust proxy', 1); // trust first proxy
+
 
 });
