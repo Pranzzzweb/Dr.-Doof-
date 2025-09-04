@@ -17,7 +17,6 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); // Serve your frontend files
 
 // Rate limiting
 const limiter = rateLimit({
@@ -95,10 +94,10 @@ app.post('/api/session/start', (req, res) => {
 // AI-powered chat route (calls Dr. Doof LLM)
 app.post('/api/chat', async (req, res) => {
     try {
-        const { sessionId, message } = req.body;
+        const { sessionId, messages } = req.body;
 
-        if (!sessionId || !message) {
-            return res.status(400).json({ error: 'Missing sessionId or message' });
+        if (!sessionId || !Array.isArray(messages)) {
+            return res.status(400).json({ error: 'Missing sessionId or messages array in body' });
         }
 
         let session = sessions.get(sessionId);
@@ -106,10 +105,8 @@ app.post('/api/chat', async (req, res) => {
             return res.status(404).json({ error: 'Session not found. Please start a new session.' });
         }
 
-        let chatLog = chatLogs.get(sessionId) || [];
-        chatLog.push({ role: "user", content: message, timestamp: new Date().toISOString() });
-
-        const aiResult = await chatWithDoof({ userId: sessionId, messages: chatLog });
+        // Call AI model with full chat history
+        const aiResult = await chatWithDoof({ userId: sessionId, messages });
 
         if (!aiResult.success) {
             return res.status(500).json({ ...aiResult, error: 'AI response generation failed.' });
@@ -118,17 +115,8 @@ app.post('/api/chat', async (req, res) => {
         const detectedMood = aiResult.detectedMood || 'neutral';
         const responseMessage = aiResult.message;
         const suggestions = aiResult.suggestions;
-
-        // Store AI response
-        chatLog.push({
-            role: "assistant",
-            content: responseMessage,
-            mood: detectedMood,
-            timestamp: new Date().toISOString()
-        });
-        chatLogs.set(sessionId, chatLog);
-
-        // Update session meta
+        
+        // Update session state
         session.lastActivity = new Date();
         session.messageCount++;
         session.currentMood = detectedMood;
@@ -136,12 +124,15 @@ app.post('/api/chat', async (req, res) => {
 
         // Update analytics
         moodAnalytics.moodDistribution[detectedMood]++;
-        updateKeywordFrequency(message);
+        const lastUserMessage = messages.slice(-1)[0]?.content;
+        if (lastUserMessage) {
+            updateKeywordFrequency(lastUserMessage);
+        }
         updateDailyStats(detectedMood);
 
         return res.json({
             success: true,
-            response: responseMessage,
+            message: responseMessage,
             detectedMood: detectedMood,
             suggestions: suggestions,
             sessionStats: {
@@ -232,19 +223,16 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve frontend
-app.get('/', (req, res) => {
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
 
 // Error handling
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ error: 'Something went wrong!' });
-});
-
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({ error: 'Route not found' });
 });
 
 // Cleanup old sessions (run every hour)
@@ -265,3 +253,4 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`📊 Analytics available at http://localhost:${PORT}/api/analytics/mood`);
     console.log(`🏥 Health check at http://localhost:${PORT}/api/health`);
 });
+
