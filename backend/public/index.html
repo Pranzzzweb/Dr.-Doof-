@@ -178,6 +178,15 @@
                 this.chatHistory = [];
                 this.isTyping = false;
                 
+                // Moved default suggestions to a class property for easier access
+                this.defaultSuggestions = {
+                    sad: ['Tell me a joke', 'I need motivation', 'Help me feel better', 'Share something positive'],
+                    happy: ['Tell me more good things', 'Share the joy', 'Keep the energy up', 'Celebrate with me'],
+                    stressed: ['Help me relax', 'Breathing exercises', 'Distract me', 'Calm my mind'],
+                    angry: ['Help me cool down', 'Count to ten', 'Tell me about cookies', 'Channel this energy'],
+                    neutral: ['How are you?', 'Tell me about your day', 'Surprise me', 'Ask me anything']
+                };
+
                 this.init();
             }
             
@@ -186,7 +195,8 @@
                 await this.startSession();
                 this.setupEventListeners();
                 this.updateMoodStatus('neutral');
-                this.updateSuggestions('neutral');
+                // Corrected the call to updateSuggestions to use the default array
+                this.updateSuggestions(this.defaultSuggestions.neutral);
             }
             
             async startSession() {
@@ -199,7 +209,8 @@
                     });
                     
                     if (!response.ok) {
-                        throw new Error('Failed to start session');
+                        // Throw a more specific error with the status code
+                        throw new Error(`Failed to start session. Status: ${response.status}`);
                     }
                     
                     const data = await response.json();
@@ -370,15 +381,7 @@
             
             updateSuggestions(customSuggestions = null) {
                 const suggestionsContainer = document.getElementById('suggestions');
-                const defaultSuggestions = {
-                    sad: ['Tell me a joke', 'I need motivation', 'Help me feel better', 'Share something positive'],
-                    happy: ['Tell me more good things', 'Share the joy', 'Keep the energy up', 'Celebrate with me'],
-                    stressed: ['Help me relax', 'Breathing exercises', 'Distract me', 'Calm my mind'],
-                    angry: ['Help me cool down', 'Count to ten', 'Tell me about cookies', 'Channel this energy'],
-                    neutral: ['How are you?', 'Tell me about your day', 'Surprise me', 'Ask me anything']
-                };
-                
-                const suggestionList = customSuggestions || defaultSuggestions['neutral'];
+                const suggestionList = customSuggestions || this.defaultSuggestions.neutral;
                 
                 suggestionsContainer.innerHTML = suggestionList.map(suggestion => 
                     `<button class="suggestion-chip" onclick="moodMate.sendSuggestion('${suggestion}')">${suggestion}</button>`
