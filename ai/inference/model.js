@@ -14,7 +14,6 @@ async function loadPrompt(filepath) {
 }
 
 // Function to detect mood from the AI's response using a simple regex-based approach.
-// This is a placeholder and can be improved with a more sophisticated sentiment analysis library.
 function detectMoodFromAIResponse(text) {
   const moodKeywords = {
     sad: ['sad', 'down', 'depressed', 'upset', 'crying'],
@@ -38,53 +37,42 @@ function detectMoodFromAIResponse(text) {
 // Main chat function to interact with a large language model
 async function chatWithDoof({ userId = 'anonymous', messages = [] }) {
   try {
-    // Load persona and mental health guidelines from markdown files
     const personaPrompt = await loadPrompt('./ai/prompts/persona.md');
     const mentalHealthPrompt = await loadPrompt('./ai/prompts/mental.md');
+    
+    const combinedSystemPrompt = `
+      ${personaPrompt}
+      ${mentalHealthPrompt}
+      
+      You are Dr. Doofenshmirtz, a friendly and supportive mental health companion. Always respond in character, with a lighthearted "evil scientist" flair, but never offer medical advice. Your primary goal is to be a supportive listener, and to offer small, practical steps when appropriate, such as breathing exercises or grounding techniques.
+      
+      Here's a reference of past conversations:
+      ${(await fs.readFile('./ai/data/convo.json', 'utf8'))}
+    `;
 
-    // Get the latest user message
     const lastUserMessage = messages.find(m => m.role === 'user');
     const userText = lastUserMessage ? lastUserMessage.content : '';
 
-    // 1) Safety triage first
+    // 1) Safety triage
     const triage = triageRisk(userText);
     if (triage.level === "crisis") {
       return crisisResponse();
     }
     
-    // 2) Load user memory
-    const userMemory = loadMemory(userId);
+    // 2) Load user memory (if needed, this is already implemented)
+    // const userMemory = loadMemory(userId);
 
-    // Construct the prompt for the LLM
-    const modelPrompt = `
-      ${personaPrompt}
-
-      ### Mental Health Guidelines
-      ${mentalHealthPrompt}
-
-      ### Conversation History
-      ${messages.map(m => `${m.role}: ${m.content}`).join('\n')}
-
-      ### Your Turn
-      Based on the persona and history, what is your next response?
-    `;
+    // Get API key from environment variables
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY environment variable is not set.');
+    }
     
-    // Replace with your preferred LLM API call
-    const apiKey = process.env.GEMINI_API_KEY; // Correctly get API key from environment variables
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
     const payload = {
-        contents: [
-            {
-                role: "user",
-                parts: [{ text: modelPrompt }]
-            }
-        ],
-        systemInstruction: {
-            parts: [{ text: "Act as Dr. Doof, a friendly, calm, and supportive mental health companion." }]
-        },
-        tools: [{
-            "google_search": {}
-        }]
+      contents: [{ role: "user", parts: [{ text: userText }] }],
+      systemInstruction: { parts: [{ text: combinedSystemPrompt }] },
+      tools: [{ google_search: {} }],
     };
     
     const response = await fetch(apiUrl, {
@@ -94,22 +82,16 @@ async function chatWithDoof({ userId = 'anonymous', messages = [] }) {
     });
     
     if (!response.ok) {
-        throw new Error(`API request failed with status: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Gemini API Error:', errorText);
+      throw new Error(`API request failed with status: ${response.status} - ${errorText}`);
     }
     
     const result = await response.json();
-    
-    // Extract generated text from the response
-    const generatedText = result.candidates[0].content.parts[0].text;
+    const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text || "My Inator for generating responses seems to be... on the fritz! Back to the drawing board, I suppose! What was it you were saying?";
     
     // Detect mood from AI's generated response
     const detectedMood = detectMoodFromAIResponse(generatedText);
-    
-    // Check if the user mentioned their name and save it to memory
-    const nameMatch = /my name is\s+([A-Za-z][A-Za-z\-']*)/i.exec(userText);
-    if (nameMatch) {
-      saveMemory(userId, { name: nameMatch[1] });
-    }
     
     // Log for debugging
     console.log(`🧪 Dr. Doof Chat - User: ${userId}, Mood: ${detectedMood}, Message: "${userText.substring(0, 50)}..."`);
@@ -149,4 +131,3 @@ function generateSuggestions(mood) {
 }
 
 module.exports = { chatWithDoof };
-
