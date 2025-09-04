@@ -14,7 +14,18 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            connectSrc: ["'self'"],
+            imgSrc: ["'self'", "data:"]
+        }
+    }
+}));
 app.use(cors());
 app.use(express.json());
 
@@ -23,25 +34,37 @@ const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100
 });
-app.use(limiter);
+app.use('/api', limiter); // Only apply rate limiting to API routes
 
 // In-memory storage (replace with database in production)
 let sessions = new Map();
+let dailyStats = new Map();
+let keywordFrequency = new Map();
 
 // Utility functions
 function updateKeywordFrequency(message) {
-    // ... (This function is fine, no changes)
+    const words = message.toLowerCase().split(/\s+/);
+    words.forEach(word => {
+        if (word.length > 3) { // Only track words longer than 3 characters
+            keywordFrequency.set(word, (keywordFrequency.get(word) || 0) + 1);
+        }
+    });
 }
 
 function getTodayKey() {
-    // ... (This function is fine, no changes)
+    return new Date().toISOString().split('T')[0];
 }
 
 function updateDailyStats(mood) {
-    // ... (This function is fine, no changes)
+    const today = getTodayKey();
+    if (!dailyStats.has(today)) {
+        dailyStats.set(today, {});
+    }
+    const dayStats = dailyStats.get(today);
+    dayStats[mood] = (dayStats[mood] || 0) + 1;
 }
 
-// Routes
+// API Routes
 
 // Create new session
 app.post('/api/session/start', (req, res) => {
@@ -53,7 +76,7 @@ app.post('/api/session/start', (req, res) => {
         messageCount: 0,
         moodHistory: [],
         currentMood: 'neutral',
-        chatHistory: [] // Add chat history to the session
+        chatHistory: []
     };
 
     sessions.set(sessionId, session);
@@ -101,7 +124,9 @@ app.post('/api/chat', async (req, res) => {
         session.currentMood = detectedMood;
         session.moodHistory.push({ mood: detectedMood, timestamp: new Date() });
 
-        // Update analytics (your analytics functions are fine, just make sure they exist)
+        // Update analytics
+        updateDailyStats(detectedMood);
+        updateKeywordFrequency(message);
 
         return res.json({
             success: true,
@@ -119,7 +144,9 @@ app.post('/api/chat', async (req, res) => {
         return res.status(500).json({
             success: false,
             error: 'An unexpected error occurred.',
-            details: err.message
+            message: "My Conversation-inator seems to be malfunctioning! *nervous evil laugh* Let me try that again - how are you feeling today?",
+            detectedMood: 'neutral',
+            suggestions: ['Try again', 'Tell me how you feel', 'Start over', 'Help']
         });
     }
 });
@@ -145,12 +172,37 @@ app.get('/api/session/:sessionId/history', (req, res) => {
 
 // Get mood analytics
 app.get('/api/analytics/mood', (req, res) => {
-    // ... (This route is fine, no changes)
+    const allMoods = {};
+    sessions.forEach(session => {
+        session.moodHistory.forEach(entry => {
+            allMoods[entry.mood] = (allMoods[entry.mood] || 0) + 1;
+        });
+    });
+
+    res.json({
+        moodDistribution: allMoods,
+        totalSessions: sessions.size,
+        dailyStats: Object.fromEntries(dailyStats),
+        topKeywords: Array.from(keywordFrequency.entries())
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 10)
+    });
 });
 
 // Get daily mood trends
 app.get('/api/analytics/trends', (req, res) => {
-    // ... (This route is fine, no changes)
+    const trends = Array.from(dailyStats.entries()).map(([date, moods]) => ({
+        date,
+        moods
+    }));
+
+    res.json({
+        trends,
+        summary: {
+            totalDays: dailyStats.size,
+            activeSessions: sessions.size
+        }
+    });
 });
 
 // Health check
@@ -159,15 +211,22 @@ app.get('/api/health', (req, res) => {
         status: 'healthy',
         timestamp: new Date(),
         activeSessions: sessions.size,
+        uptime: process.uptime()
     });
 });
 
-// Serve frontend
+// Serve static files from public directory
 app.use(express.static(path.join(__dirname, 'public')));
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
+// IMPORTANT: This catch-all route should be LAST and only for SPA routing
+app.get('*', (req, res) => {
+    // Only serve index.html for non-API routes and non-file extensions
+    if (!req.path.startsWith('/api') && !req.path.includes('.')) {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    } else {
+        res.status(404).json({ error: 'Not found' });
+    }
+});
 
 // Error handling
 app.use((err, req, res, next) => {
@@ -189,4 +248,6 @@ setInterval(() => {
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🧪 Dr. Doof's Mood Mate Backend is running on port ${PORT}`);
+    console.log(`📱 Frontend available at: http://localhost:${PORT}`);
+    console.log(`🔧 API available at: http://localhost:${PORT}/api`);
 });
