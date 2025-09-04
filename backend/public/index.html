@@ -1,59 +1,180 @@
-// yay
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dr. Doof's Mood Mate</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'doof-purple': '#6C5CE7',
+              'doof-lavender': '#9588F2',
+              'doof-green': '#00b894',
+              'doof-pink': '#fd79a8',
+              'doof-red': '#e84393',
+              'doof-blue': '#74b9ff',
+              'doof-light-gray': '#f4f4f9',
+              'doof-dark-gray': '#2d3436',
+            },
+            fontFamily: {
+              'inter': ['Inter', 'sans-serif'],
+              'burbank': ['"Burbank Big Condensed"', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Burbank+Big+Condensed&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f4f4f9;
+      }
+      .doof-heading {
+        font-family: 'Burbank Big Condensed', sans-serif;
+        font-size: 2.5rem;
+        line-height: 1;
+        letter-spacing: 0.1em;
+        color: #6C5CE7;
+        text-shadow: 2px 2px #E84393;
+        transition: transform 0.3s ease;
+      }
+      .doof-heading:hover {
+        transform: scale(1.05) rotate(-3deg);
+      }
+      .chat-container {
+        max-width: 600px;
+        height: 100vh;
+      }
+      .doof-message-bubble {
+        background-color: #6C5CE7;
+        color: white;
+        border-radius: 1.5rem;
+        border-top-left-radius: 0;
+        padding: 1rem 1.5rem;
+        max-width: 80%;
+      }
+      .user-message-bubble {
+        background-color: #00b894;
+        color: white;
+        border-radius: 1.5rem;
+        border-top-right-radius: 0;
+        padding: 1rem 1.5rem;
+        max-width: 80%;
+      }
+      .doof-avatar {
+        transition: transform 0.3s ease;
+        animation: spin-and-pulse 2s ease-in-out infinite;
+      }
+      .doof-avatar:hover {
+        animation-play-state: paused;
+        transform: rotate(360deg) scale(1.1);
+      }
+      @keyframes spin-and-pulse {
+        0% { transform: rotate(0deg) scale(1); }
+        50% { transform: rotate(30deg) scale(1.05); }
+        100% { transform: rotate(0deg) scale(1); }
+      }
+      .mood-indicator {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        bottom: -10px;
+        right: -10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        animation: mood-pop 0.5s ease-out;
+      }
+      @keyframes mood-pop {
+        0% { transform: scale(0); opacity: 0; }
+        70% { transform: scale(1.2); opacity: 1; }
+        100% { transform: scale(1); }
+      }
+      .suggestion-chip {
+        @apply bg-doof-lavender text-white px-4 py-2 rounded-full text-sm font-semibold cursor-pointer transition-all duration-300 transform hover:scale-105 hover:bg-doof-purple;
+      }
+      .send-button {
+        @apply bg-doof-green text-white font-bold py-3 px-6 rounded-full transition-all duration-300 transform hover:scale-105 hover:bg-doof-dark-gray focus:outline-none;
+      }
+      .message-input {
+        @apply flex-grow px-6 py-3 bg-white rounded-full text-doof-dark-gray placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-doof-purple;
+      }
+      .chat-messages {
+        scrollbar-width: thin;
+        scrollbar-color: #888 #f1f1f1;
+      }
+      .chat-messages::-webkit-scrollbar {
+        width: 8px;
+      }
+      .chat-messages::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+      }
+      .chat-messages::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+      }
+      .offline-notice {
+          background: #ffeaa7; color: #2d3436; padding: 8px; margin-top: 10px; 
+          border-radius: 5px; font-size: 0.8em; text-align: center;
+          animation: notice-in 0.5s ease-out;
+      }
+      @keyframes notice-in {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+    </style>
 </head>
-<body>
-    <div class="chat-container">
-        <div class="header">
-            <div class="doof-avatar">🧪</div>
-            <h1>Dr. Doof's Mood Mate</h1>
-            <p>Your AI Mental Health Companion</p>
-            <div class="mood-status" id="moodStatus">Mood: Analyzing...</div>
+<body class="bg-doof-light-gray flex items-center justify-center min-h-screen">
+    <div class="chat-container bg-white rounded-3xl shadow-xl flex flex-col p-6 m-4 sm:m-8 overflow-hidden">
+        <div class="header text-center pb-4 mb-4 border-b-2 border-doof-lavender">
+            <h1 class="doof-heading text-doof-purple">Dr. Doof's Mood Mate</h1>
+            <p class="text-sm text-doof-dark-gray mt-2">Your AI Mental Health Companion... *evil chuckle*</p>
+            <div id="moodStatus" class="mood-status mt-2 text-doof-green font-bold">Mood: Analyzing...</div>
         </div>
 
-        <div class="chat-messages" id="chatMessages">
-            <div class="message doof-message">
-                <div class="avatar">🧪</div>
-                <div class="message-bubble">
-                    Ah, hello there! I am Dr. Heinz Doofenshmirtz, but you can call me Dr. Doof! 
-                    I've traded my evil schemes for something much better - helping you with your mood! 
-                    How are you feeling today? 😊
-                    <div class="mood-indicator" style="background: #feca57;">😊</div>
+        <div id="chatMessages" class="chat-messages flex-1 overflow-y-auto space-y-6 p-4">
+            <!-- Initial Dr. Doof Message -->
+            <div class="flex items-start doof-message">
+                <div class="avatar text-3xl mr-4 doof-avatar">🧪</div>
+                <div class="relative flex flex-col">
+                    <div class="doof-message-bubble">
+                        Ah, hello there! I am Dr. Heinz Doofenshmirtz, but you can call me Dr. Doof! I've traded my evil schemes for something much better - helping you with your mood! How are you feeling today?
+                        <div class="mood-indicator" style="background: #74b9ff;">😐</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="typing-indicator" id="typingIndicator">
+        <div id="typingIndicator" class="typing-indicator text-doof-lavender text-center my-4 hidden animate-pulse">
             Dr. Doof is typing...
         </div>
 
-        <div class="input-area">
-            <div class="suggestions" id="suggestions">
+        <div class="input-area pt-4">
+            <div id="suggestions" class="suggestions flex flex-wrap gap-2 justify-center mb-4">
                 <button class="suggestion-chip" onclick="sendSuggestion('I feel sad today')">I feel sad today</button>
                 <button class="suggestion-chip" onclick="sendSuggestion('I am stressed')">I'm stressed</button>
                 <button class="suggestion-chip" onclick="sendSuggestion('I am happy!')">I'm happy!</button>
                 <button class="suggestion-chip" onclick="sendSuggestion('Tell me a joke')">Tell me a joke</button>
             </div>
-            <div class="input-container">
-                <input type="text" class="message-input" id="messageInput" 
-                       placeholder="Type your message here..." onkeypress="handleKeyPress(event)">
-                <button class="send-button" id="sendButton" onclick="sendMessage()">Send</button>
+            <div class="input-container flex items-center space-x-2">
+                <input type="text" id="messageInput" class="message-input" placeholder="Type your message here...">
+                <button id="sendButton" class="send-button">Send</button>
             </div>
         </div>
     </div>
-
+    
     <script>
-        // Enhanced frontend script with backend integration
-        class MoodMateClient {
+      class MoodMateClient {
             constructor() {
                 this.sessionId = null;
                 this.apiBase = window.location.origin + '/api';
-                this.currentMood = 'neutral';
                 this.chatHistory = [];
                 this.isTyping = false;
                 
@@ -116,16 +237,13 @@
                 
                 if (message === '' || this.isTyping) return;
                 
-                // Add user message to UI
                 this.addMessageToUI('user', message);
                 input.value = '';
                 
-                // Show typing indicator
                 this.setTyping(true);
                 
                 try {
-                    // Send to backend
-                    const response = await fetch(`${this.apiBase}/chat/message`, {
+                    const response = await fetch(`${this.apiBase}/chat`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -133,7 +251,6 @@
                         body: JSON.stringify({
                             sessionId: this.sessionId,
                             message: message,
-                            timestamp: new Date().toISOString()
                         })
                     });
                     
@@ -143,37 +260,28 @@
                     
                     const data = await response.json();
                     
-                    // Simulate typing delay
                     setTimeout(() => {
                         this.setTyping(false);
-                        this.addMessageToUI('doof', data.response, data.detectedMood);
-                        this.currentMood = data.detectedMood;
-                        this.updateMoodStatus(data.detectedMood);
-                        this.updateSuggestions(data.detectedMood, data.suggestions);
-                        
-                        // Log session stats
-                        console.log('Session stats:', data.sessionStats);
-                        
+                        this.addMessageToUI('doof', data.message, data.detectedMood || 'neutral');
+                        this.updateMoodStatus(data.detectedMood || 'neutral');
+                        this.updateSuggestions(data.suggestions);
                     }, 1500);
                     
                 } catch (error) {
                     console.error('Message send failed:', error);
-                    // Fallback to offline mode
                     this.handleOfflineMessage(message);
                 }
             }
             
             handleOfflineMessage(message) {
-                // Fallback mood detection and response
                 const detectedMood = this.detectMoodOffline(message);
                 const response = this.getOfflineResponse(detectedMood);
                 
                 setTimeout(() => {
                     this.setTyping(false);
                     this.addMessageToUI('doof', response, detectedMood);
-                    this.currentMood = detectedMood;
                     this.updateMoodStatus(detectedMood);
-                    this.updateSuggestions(detectedMood);
+                    this.updateSuggestions();
                 }, 1500);
             }
             
@@ -188,11 +296,11 @@
             
             getOfflineResponse(mood) {
                 const responses = {
-                    sad: "I sense you're feeling down. Even in offline mode, Dr. Doof is here for you! Remember, every cloud has a silver lining! 💙",
-                    happy: "Your happiness shines through! Dr. Doof loves your positive energy! Keep spreading that joy! ✨",
-                    stressed: "Take a deep breath with me... in and out. You've got this! Stress is temporary, but your strength is permanent! 🌬️",
-                    angry: "I understand your frustration. Let's channel that energy positively! Even my anger led to great inventions! ⚡",
-                    neutral: "I'm here to chat with you. What's on your mind today? Let's make this conversation interesting! 🤔"
+                    sad: "I sense you're feeling down. Even in offline mode, Dr. Doof is here for you! 💙",
+                    happy: "Your happiness shines through! Dr. Doof loves your positive energy! ✨",
+                    stressed: "Take a deep breath with me... in and out. You've got this! 🌬️",
+                    angry: "I understand your frustration. Let's channel that energy positively! ⚡",
+                    neutral: "I'm here to chat with you. What's on your mind today? 🤔"
                 };
                 return responses[mood] || responses.neutral;
             }
@@ -200,13 +308,17 @@
             addMessageToUI(sender, message, mood = null) {
                 const chatMessages = document.getElementById('chatMessages');
                 const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${sender}-message`;
                 
                 if (sender === 'user') {
-                    messageDiv.innerHTML = `<div class="message-bubble">${this.escapeHtml(message)}</div>`;
+                    messageDiv.className = `flex justify-end`;
+                    messageDiv.innerHTML = `
+                        <div class="user-message-bubble shadow-md animated-message">
+                            ${this.escapeHtml(message)}
+                        </div>
+                    `;
                 } else {
                     const moodColors = {
-                        sad: '#6c5ce7', happy: '#00b894', stressed: '#fd79a8', 
+                        sad: '#6C5CE7', happy: '#00b894', stressed: '#fd79a8', 
                         angry: '#e84393', neutral: '#74b9ff'
                     };
                     const moodEmojis = {
@@ -217,11 +329,14 @@
                     const color = moodColors[mood] || moodColors.neutral;
                     const emoji = moodEmojis[mood] || moodEmojis.neutral;
                     
+                    messageDiv.className = `flex items-start doof-message`;
                     messageDiv.innerHTML = `
-                        <div class="avatar">🧪</div>
-                        <div class="message-bubble">
-                            ${message}
-                            <div class="mood-indicator" style="background: ${color};">${emoji}</div>
+                        <div class="avatar text-3xl mr-4 doof-avatar">🧪</div>
+                        <div class="relative flex flex-col">
+                            <div class="doof-message-bubble shadow-md animated-message">
+                                ${message}
+                                <div class="mood-indicator" style="background: ${color};">${emoji}</div>
+                            </div>
                         </div>
                     `;
                 }
@@ -229,10 +344,7 @@
                 chatMessages.appendChild(messageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
                 
-                // Store in chat history
-                this.chatHistory.push({
-                    sender, message, mood, timestamp: new Date()
-                });
+                this.chatHistory.push({ sender, message, mood, timestamp: new Date() });
             }
             
             setTyping(isTyping) {
@@ -242,6 +354,7 @@
                 
                 typingIndicator.style.display = isTyping ? 'block' : 'none';
                 sendButton.disabled = isTyping;
+                sendButton.style.opacity = isTyping ? '0.6' : '1';
             }
             
             updateMoodStatus(mood) {
@@ -255,9 +368,8 @@
                 moodStatus.textContent = `Mood: ${mood.charAt(0).toUpperCase() + mood.slice(1)} ${emoji}`;
             }
             
-            updateSuggestions(mood, customSuggestions = null) {
-                const suggestions = document.getElementById('suggestions');
-                
+            updateSuggestions(customSuggestions = null) {
+                const suggestionsContainer = document.getElementById('suggestions');
                 const defaultSuggestions = {
                     sad: ['Tell me a joke', 'I need motivation', 'Help me feel better', 'Share something positive'],
                     happy: ['Tell me more good things', 'Share the joy', 'Keep the energy up', 'Celebrate with me'],
@@ -266,9 +378,9 @@
                     neutral: ['How are you?', 'Tell me about your day', 'Surprise me', 'Ask me anything']
                 };
                 
-                const suggestionList = customSuggestions || defaultSuggestions[mood] || defaultSuggestions.neutral;
+                const suggestionList = customSuggestions || defaultSuggestions['neutral'];
                 
-                suggestions.innerHTML = suggestionList.map(suggestion => 
+                suggestionsContainer.innerHTML = suggestionList.map(suggestion => 
                     `<button class="suggestion-chip" onclick="moodMate.sendSuggestion('${suggestion}')">${suggestion}</button>`
                 ).join('');
             }
@@ -294,38 +406,23 @@
             }
         }
 
-        // Initialize when DOM is ready
         let moodMate;
 
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🧪 Dr. Doof\'s Mood Mate - Frontend Loading...');
             moodMate = new MoodMateClient();
-            
-            // Make it globally accessible for suggestion chips
             window.moodMate = moodMate;
         });
 
-        // Global functions for HTML onclick handlers
         function sendSuggestion(suggestion) {
             if (window.moodMate) {
                 window.moodMate.sendSuggestion(suggestion);
             }
         }
-
         function sendMessage() {
             if (window.moodMate) {
                 window.moodMate.sendMessage();
             }
         }
-
-        function handleKeyPress(event) {
-            if (event.key === 'Enter' && window.moodMate) {
-                window.moodMate.sendMessage();
-            }
-        }
     </script>
-    <script src="/js/script.js"></script>
-
-    
 </body>
 </html>
