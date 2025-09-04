@@ -4,10 +4,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const { chatWithDoof } = require('../ai/inference/model');
 
-require('dotenv').config();                         // load backend/.env
-const { chatWithDoof } = require('../ai/inference/model'); // path from backend/server.js -> ai/inference/model.js
-
+require('dotenv').config(); // load backend/.env
 
 const app = express();
 app.set('trust proxy', 1); // trust the first proxy
@@ -36,100 +35,14 @@ let moodAnalytics = {
         happy: 0,
         sad: 0,
         stressed: 0,
-        neutral: 0
+        neutral: 0,
+        angry: 0
     },
     commonKeywords: {},
     dailyStats: {}
 };
 
-// Enhanced mood detection with more sophisticated analysis
-const moodKeywords = {
-    sad: ['sad', 'depressed', 'down', 'crying', 'upset', 'hurt', 'disappointed', 'gloomy', 'miserable', 'heartbroken'],
-    happy: ['happy', 'great', 'awesome', 'excited', 'joy', 'amazing', 'fantastic', 'wonderful', 'thrilled', 'elated'],
-    stressed: ['stressed', 'anxious', 'worried', 'nervous', 'overwhelmed', 'panic', 'tense', 'pressure', 'burden', 'frantic'],
-    angry: ['angry', 'mad', 'furious', 'irritated', 'annoyed', 'rage', 'pissed', 'frustrated', 'livid'],
-    neutral: ['okay', 'fine', 'normal', 'alright', 'meh']
-};
-
-const moodResponses = {
-    sad: {
-        responses: [
-            "Ah, I sense sadness in your words! You know, even evil scientists get the blues sometimes. Here's what helped me: *plays uplifting music* 🎵",
-            "Don't worry! Even my most diabolical plans failed, but I never gave up! Here's a motivational quote: 'Every failure is a step closer to success!' 💪",
-            "Hey, let me tell you a joke! Why don't scientists trust atoms? Because they make up everything! *chuckles evilly* 😄",
-            "I understand you're feeling down. Even Dr. Doof has rough days! Remember, emotions are like my inventions - they don't last forever! 🔬"
-        ],
-        suggestions: ['Tell me more jokes', 'I need motivation', 'Play calming music', 'Share a success story']
-    },
-    happy: {
-        responses: [
-            "Excellent! Your happiness levels are off the charts! This calls for a celebration! 🎉",
-            "Wonderful! You know what? Your good mood is more powerful than any of my -inators! Keep it up! ✨",
-            "Fantastic! Let's keep this positive energy going! Want to hear about my latest GOOD deed? 😊",
-            "Your happiness is contagious! It's spreading faster than my Happiness-inator ever could! 🌟"
-        ],
-        suggestions: ['Tell me about your good deed', 'Share more positivity', 'Celebrate with me!', 'Spread the joy']
-    },
-    stressed: {
-        responses: [
-            "Stress detected! Time for my Anti-Stress-inator! Take a deep breath in... and out... Feel better? 🌬️",
-            "Ah, stress! I know it well from building all those inventions. Here's a breathing exercise: Breathe in for 4, hold for 4, out for 4. Try it! 🧘",
-            "Stress is like a failed invention - the more you focus on it, the worse it gets! Let's distract that brilliant mind of yours! 🎯",
-            "I've been there! Building death rays is stressful work. Try the 5-4-3-2-1 technique: 5 things you see, 4 you hear, 3 you touch, 2 you smell, 1 you taste! 👃"
-        ],
-        suggestions: ['More breathing exercises', 'Distract me', 'Relaxation tips', 'Mindfulness techniques']
-    },
-    angry: {
-        responses: [
-            "Whoa there! I sense some anger! You know, I used to channel anger into evil schemes, but now I make cookies instead! 🍪",
-            "Anger is like my old Rage-inator - powerful but destructive! Let's turn that energy into something positive! ⚡",
-            "I get it! Sometimes you just want to build a giant robot and... wait, that's just me. Try counting to 10 instead! 🤖"
-        ],
-        suggestions: ['Help me calm down', 'Count with me', 'Tell me about cookies', 'Channel this energy']
-    },
-    neutral: {
-        responses: [
-            "I see you're in a neutral state! That's perfectly fine! Tell me, what's on your mind today? 🤔",
-            "Ah, the calm before the storm of emotions! How can Dr. Doof brighten your day? ⚡",
-            "Neutral mood detected! You know what's NOT neutral? My enthusiasm to help you! What would you like to talk about? 🔬"
-        ],
-        suggestions: ['How are you feeling?', 'Tell me about your day', 'Surprise me!', 'Ask me anything']
-    }
-};
-
 // Utility functions
-function detectMood(message) {
-    const msg = message.toLowerCase();
-    let moodScores = {};
-    
-    // Initialize scores
-    Object.keys(moodKeywords).forEach(mood => {
-        moodScores[mood] = 0;
-    });
-    
-    // Score based on keywords
-    Object.entries(moodKeywords).forEach(([mood, keywords]) => {
-        keywords.forEach(keyword => {
-            if (msg.includes(keyword)) {
-                moodScores[mood] += keyword.length; // Longer keywords get higher weight
-            }
-        });
-    });
-    
-    // Find highest scoring mood
-    let detectedMood = 'neutral';
-    let maxScore = 0;
-    
-    Object.entries(moodScores).forEach(([mood, score]) => {
-        if (score > maxScore) {
-            maxScore = score;
-            detectedMood = mood;
-        }
-    });
-    
-    return detectedMood;
-}
-
 function updateKeywordFrequency(message) {
     const words = message.toLowerCase().split(/\s+/);
     words.forEach(word => {
@@ -167,11 +80,11 @@ app.post('/api/session/start', (req, res) => {
         moodHistory: [],
         currentMood: 'neutral'
     };
-    
+
     sessions.set(sessionId, session);
     chatLogs.set(sessionId, []);
     moodAnalytics.totalSessions++;
-    
+
     res.json({
         success: true,
         sessionId: sessionId,
@@ -179,128 +92,72 @@ app.post('/api/session/start', (req, res) => {
     });
 });
 
-// Send message and get response
-app.post('/api/chat/message', (req, res) => {
-    const { sessionId, message, timestamp } = req.body;
-    
-    if (!sessionId || !message) {
-        return res.status(400).json({ error: 'Missing sessionId or message' });
-    }
-    
-    const session = sessions.get(sessionId);
-    if (!session) {
-        return res.status(404).json({ error: 'Session not found' });
-    }
-    
-    // Detect mood
-    const detectedMood = detectMood(message);
-    
-    // Update session
-    session.lastActivity = new Date();
-    session.messageCount++;
-    session.currentMood = detectedMood;
-    session.moodHistory.push({ mood: detectedMood, timestamp: new Date() });
-    
-    // Update analytics
-    moodAnalytics.moodDistribution[detectedMood]++;
-    updateKeywordFrequency(message);
-    updateDailyStats(detectedMood);
-    
-    // Store chat log
-    const chatLog = chatLogs.get(sessionId);
-    chatLog.push({
-        sender: 'user',
-        message: message,
-        mood: detectedMood,
-        timestamp: timestamp || new Date()
-    });
-    
-    // Generate response
-    const moodData = moodResponses[detectedMood] || moodResponses.neutral;
-    const response = moodData.responses[Math.floor(Math.random() * moodData.responses.length)];
-    
-    // Store bot response
-    chatLog.push({
-        sender: 'doof',
-        message: response,
-        mood: detectedMood,
-        timestamp: new Date()
-    });
-    
-    
-    res.json({
-        success: true,
-        response: response,
-        detectedMood: detectedMood,
-        suggestions: moodData.suggestions,
-        sessionStats: {
-            messageCount: session.messageCount,
-            currentMood: detectedMood,
-            sessionDuration: new Date() - session.startTime
-        }
-    });
-});
 // AI-powered chat route (calls Dr. Doof LLM)
 app.post('/api/chat', async (req, res) => {
-  try {
-    const { sessionId, userId = 'anon', messages } = req.body;
+    try {
+        const { sessionId, message } = req.body;
 
-    // Normalize messages to an array of {role, content}
-    let msgs = messages;
-    if (!Array.isArray(msgs)) {
-      if (typeof msgs === 'string' && msgs.trim().length) {
-        msgs = [{ role: 'user', content: msgs }];
-      } else if (req.body.message && typeof req.body.message === 'string') {
-        msgs = [{ role: 'user', content: req.body.message }];
-      } else {
-        msgs = [];
-      }
-    }
-
-    // Call your AI module
-    const aiResult = await chatWithDoof({ userId, messages: msgs });
-
-    // If a sessionId was provided, store the messages in the same session logs & update analytics
-    if (sessionId && sessions.has(sessionId)) {
-      const chatLog = chatLogs.get(sessionId) || [];
-
-      // Save user messages
-      msgs.forEach(m => {
-        if (m.role === 'user') {
-          const detected = detectMood(m.content || '');
-          chatLog.push({ sender: 'user', message: m.content, mood: detected, timestamp: new Date() });
+        if (!sessionId || !message) {
+            return res.status(400).json({ error: 'Missing sessionId or message' });
         }
-      });
 
-      // Save AI response
-      chatLog.push({
-        sender: 'doof',
-        message: aiResult.message,
-        mood: aiResult.triage?.level === 'crisis' ? 'stressed' : detectMood(aiResult.message || ''),
-        timestamp: new Date()
-      });
+        let session = sessions.get(sessionId);
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found. Please start a new session.' });
+        }
 
-      chatLogs.set(sessionId, chatLog);
+        let chatLog = chatLogs.get(sessionId) || [];
+        chatLog.push({ role: "user", content: message, timestamp: new Date().toISOString() });
 
-      // Update session meta
-      const session = sessions.get(sessionId);
-      session.lastActivity = new Date();
-      session.messageCount = (session.messageCount || 0) + 1;
-      const curMood = detectMood(aiResult.message || '');
-      session.currentMood = curMood;
-      session.moodHistory.push({ mood: curMood, timestamp: new Date() });
+        const aiResult = await chatWithDoof({ userId: sessionId, messages: chatLog });
 
-      // Update analytics
-      moodAnalytics.moodDistribution[curMood] = (moodAnalytics.moodDistribution[curMood] || 0) + 1;
-      updateKeywordFrequency(aiResult.message || '');
-      updateDailyStats(curMood);
+        if (!aiResult.success) {
+            return res.status(500).json({ ...aiResult, error: 'AI response generation failed.' });
+        }
+
+        const detectedMood = aiResult.detectedMood || 'neutral';
+        const responseMessage = aiResult.message;
+        const suggestions = aiResult.suggestions;
+
+        // Store AI response
+        chatLog.push({
+            role: "assistant",
+            content: responseMessage,
+            mood: detectedMood,
+            timestamp: new Date().toISOString()
+        });
+        chatLogs.set(sessionId, chatLog);
+
+        // Update session meta
+        session.lastActivity = new Date();
+        session.messageCount++;
+        session.currentMood = detectedMood;
+        session.moodHistory.push({ mood: detectedMood, timestamp: new Date() });
+
+        // Update analytics
+        moodAnalytics.moodDistribution[detectedMood]++;
+        updateKeywordFrequency(message);
+        updateDailyStats(detectedMood);
+
+        return res.json({
+            success: true,
+            response: responseMessage,
+            detectedMood: detectedMood,
+            suggestions: suggestions,
+            sessionStats: {
+                messageCount: session.messageCount,
+                currentMood: detectedMood,
+                sessionDuration: new Date() - session.startTime
+            }
+        });
+    } catch (err) {
+        console.error('AI chat error:', err);
+        return res.status(500).json({
+            success: false,
+            error: 'An unexpected error occurred.',
+            details: err.message
+        });
     }
-
-    return res.json({ success: true, ...aiResult });
-  } catch (err) {
-    console.error('AI chat error:', err);
-    return res.status(500).json({ success: false, error: 'AI error', details: err.message });
-  }
 });
 
 // Get session history
@@ -308,11 +165,11 @@ app.get('/api/session/:sessionId/history', (req, res) => {
     const { sessionId } = req.params;
     const session = sessions.get(sessionId);
     const chatLog = chatLogs.get(sessionId);
-    
+
     if (!session) {
         return res.status(404).json({ error: 'Session not found' });
     }
-    
+
     res.json({
         session: session,
         chatHistory: chatLog || [],
@@ -332,12 +189,12 @@ app.get('/api/analytics/mood', (req, res) => {
             obj[word] = count;
             return obj;
         }, {});
-    
+
     res.json({
         ...moodAnalytics,
         topKeywords: topKeywords,
-        averageSessionLength: sessions.size > 0 ? 
-            Array.from(sessions.values()).reduce((acc, session) => 
+        averageSessionLength: sessions.size > 0 ?
+            Array.from(sessions.values()).reduce((acc, session) =>
                 acc + session.messageCount, 0) / sessions.size : 0
     });
 });
@@ -347,12 +204,12 @@ app.get('/api/analytics/trends', (req, res) => {
     const { days = 7 } = req.query;
     const today = new Date();
     const trends = [];
-    
+
     for (let i = days - 1; i >= 0; i--) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
         const dateKey = date.toISOString().split('T')[0];
-        
+
         trends.push({
             date: dateKey,
             stats: moodAnalytics.dailyStats[dateKey] || {
@@ -360,7 +217,7 @@ app.get('/api/analytics/trends', (req, res) => {
             }
         });
     }
-    
+
     res.json({ trends });
 });
 
@@ -393,7 +250,7 @@ app.use((req, res) => {
 // Cleanup old sessions (run every hour)
 setInterval(() => {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    
+
     for (const [sessionId, session] of sessions.entries()) {
         if (session.lastActivity < oneHourAgo) {
             sessions.delete(sessionId);
@@ -404,12 +261,7 @@ setInterval(() => {
 }, 60 * 60 * 1000);
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🧪 Dr. Doof's Mood Mate Backend is running on port ${PORT}`);
-
+    console.log(`🧪 Dr. Doof's Mood Mate Backend is running on port ${PORT}`);
     console.log(`📊 Analytics available at http://localhost:${PORT}/api/analytics/mood`);
     console.log(`🏥 Health check at http://localhost:${PORT}/api/health`);
-    const app = express();
-
-
-
 });
