@@ -23,17 +23,17 @@
 ## 🏃‍♂️ Quick Start
 
 ### Development
-\`\`\`bash
+```bash
 git clone https://github.com/YOUR_USERNAME/dr-doofs-mood-mate.git
 cd dr-doofs-mood-mate
 npm install
 npm run dev
-\`\`\`
+```
 
 ### Production
-\`\`\`bash
+```bash
 npm start
-\`\`\`
+```
 
 Visit: http://localhost:3000
 
@@ -57,6 +57,6 @@ MIT License
 
 **Your Name** - [GitHub](https://github.com/YOUR_USERNAME)
 
----
+
 
 *Helping people feel better, one evil scheme at a time! 🧪*
